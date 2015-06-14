@@ -90,20 +90,20 @@ class TestDotMatrixTMatrixT(_TestDot):
         self.op = lambda x, y: F.dot(x, y, transa=True, transb=True)
         self.forward_answer = numpy.dot(self.x1.T, self.x2.T)
 
-class TestDotVectorVectorT(_TestDot):
-    def setUp(self):
-        self.x1 = numpy.random.uniform(.5, 1, (m,)).astype(numpy.float32)
-        self.x2 = numpy.random.uniform(.5, 1, (m,)).astype(numpy.float32)
-        self.gy = numpy.random.uniform(-1, 1, (1, 1)).astype(numpy.float32)
-        self.op = lambda x, y: F.dot(x, y, transb=True)
-        self.forward_answer = numpy.dot(self.x1, self.x2).reshape(1, 1)
-
 class TestDotVectorTVector(_TestDot):
     def setUp(self):
         self.x1 = numpy.random.uniform(.5, 1, (m,)).astype(numpy.float32)
         self.x2 = numpy.random.uniform(.5, 1, (m,)).astype(numpy.float32)
-        self.gy = numpy.random.uniform(-1, 1, (m, m)).astype(numpy.float32)
+        self.gy = numpy.random.uniform(-1, 1, (1, 1)).astype(numpy.float32)
         self.op = lambda x, y: F.dot(x, y, transa=True)
+        self.forward_answer = numpy.dot(self.x1, self.x2).reshape(1, 1)
+
+class TestDotVectorVectorT(_TestDot):
+    def setUp(self):
+        self.x1 = numpy.random.uniform(.5, 1, (m,)).astype(numpy.float32)
+        self.x2 = numpy.random.uniform(.5, 1, (m,)).astype(numpy.float32)
+        self.gy = numpy.random.uniform(-1, 1, (m, m)).astype(numpy.float32)
+        self.op = lambda x, y: F.dot(x, y, transb=True)
         self.forward_answer = numpy.dot(
                 self.x1.reshape(m, 1), self.x2.reshape(1, m))
 
@@ -157,19 +157,6 @@ class TestBatchDotMatrixTMatrixT(_TestDot):
         self.forward_answer = numpy.array([
             numpy.dot(self.x1[i].T, self.x2[i].T) for i in xrange(batch_size)])
 
-class TestBatchDotVectorVectorT(_TestDot):
-    def setUp(self):
-        self.x1 = numpy.random.uniform(
-                .5, 1, (batch_size, m,)).astype(numpy.float32)
-        self.x2 = numpy.random.uniform(
-                .5, 1, (batch_size, m,)).astype(numpy.float32)
-        self.gy = numpy.random.uniform(
-                -1, 1, (batch_size, 1, 1)).astype(numpy.float32)
-        self.op = lambda x, y: F.batchdot(x, y, transb=True)
-        self.forward_answer = numpy.array(
-                [numpy.dot(self.x1[i], self.x2[i]) for i in xrange(batch_size)]
-                ).reshape(batch_size, 1, 1)
-
 class TestBatchDotVectorTVector(_TestDot):
     def setUp(self):
         self.x1 = numpy.random.uniform(
@@ -177,8 +164,21 @@ class TestBatchDotVectorTVector(_TestDot):
         self.x2 = numpy.random.uniform(
                 .5, 1, (batch_size, m,)).astype(numpy.float32)
         self.gy = numpy.random.uniform(
-                -1, 1, (batch_size, m, m)).astype(numpy.float32)
+                -1, 1, (batch_size, 1, 1)).astype(numpy.float32)
         self.op = lambda x, y: F.batchdot(x, y, transa=True)
+        self.forward_answer = numpy.array(
+                [numpy.dot(self.x1[i], self.x2[i]) for i in xrange(batch_size)]
+                ).reshape(batch_size, 1, 1)
+
+class TestBatchDotVectorVectorT(_TestDot):
+    def setUp(self):
+        self.x1 = numpy.random.uniform(
+                .5, 1, (batch_size, m,)).astype(numpy.float32)
+        self.x2 = numpy.random.uniform(
+                .5, 1, (batch_size, m,)).astype(numpy.float32)
+        self.gy = numpy.random.uniform(
+                -1, 1, (batch_size, m, m)).astype(numpy.float32)
+        self.op = lambda x, y: F.batchdot(x, y, transb=True)
         self.forward_answer = numpy.array(
                 [numpy.dot(self.x1[i].reshape(m, 1),
                     self.x2[i].reshape(1, m)) for i in xrange(batch_size)])
