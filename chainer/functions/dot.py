@@ -3,7 +3,7 @@ import numpy
 
 def _as_mat(x):
     # 1-D arrays are considered as column vectors
-    return x.reshape(1, (len(x))) if len(x.shape) == 1 else x
+    return x.reshape((len(x), 1)) if len(x.shape) == 1 else x
 
 def _as_trans_op(trans):
     return 't' if trans else 'n'
@@ -79,7 +79,7 @@ def dot(x, y, transa=False, transb=False):
     Args:
         x, y: Variables of 2-D or 1-D arrays.
             A 2-D array with shape (N, M) is considered as a NxM matrix.
-            A 1-D array with shape (N,) is considered as a 1xN matrix.
+            A 1-D array with shape (N,) is considered as a Nx1 matrix.
         transa (bool): If true, transpose x.
         transb (bool): If true, transpose y.
 
@@ -159,7 +159,7 @@ def batchdot(x, y, transa=False, transb=False):
     Args:
         x, y: Variables of 3-D or 2-D arrays.
             A 3-D array of shape (B, N, M) is considered as B NxM matrices.
-            A 2-D array of shape (B, N,) is considered as B 1xN matrices.
+            A 2-D array of shape (B, N,) is considered as B Nx1 matrices.
         transa (bool): If true, transpose each matrix in x.
         transb (bool): If true, transpose each matrix in y.
 
