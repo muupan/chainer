@@ -13,13 +13,8 @@ class MockFunction(Function):
         self.p = np.zeros(shape).astype(np.float32)
         self.gp = np.ones(shape).astype(np.float32)
 
-    @property
-    def parameter_names(self):
-        return ('p', )
-
-    @property
-    def gradient_names(self):
-        return ('gp', )
+    parameter_names = ('p', )
+    gradient_names  = ('gp', )
 
 class TestNestedFunctionSet(TestCase):
     def setUp(self):
