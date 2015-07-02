@@ -7,8 +7,10 @@ def _bptrs(a):
     """
     Pointer array when input represents a batch of matrices.
     """
-    return cuda.to_gpu(numpy.arange(a.ptr,a.ptr+a.shape[0]*a.strides[0],a.strides[0],
-                dtype=cuda.cublas.ctypes.c_void_p))
+    return cuda.to_gpu(
+            numpy.arange(a.ptr, a.ptr + a.shape[0] * a.strides[0],
+        a.strides[0], dtype=cuda.cublas.ctypes.c_void_p))
+
 def _as_mat(x):
     # 1-D arrays are considered as column vectors
     return x.reshape((len(x), 1)) if len(x.shape) == 1 else x
@@ -20,7 +22,10 @@ def _as_batchmat(x):
 def _as_trans_op(trans):
     return 't' if trans else 'n'
 
-def _dot_cpu_notransout(x, y, transa=False, transb=False):
+def _dot_cpu(x, y, transa=False, transb=False, transout=False):
+    if transout:
+        # (X Y)^T = Y^T X^T
+        x, y, transa, transb = y, x, not transb, not transa
     x = _as_mat(x)
     y = _as_mat(y)
     if transa:
@@ -29,14 +34,10 @@ def _dot_cpu_notransout(x, y, transa=False, transb=False):
         y = y.T
     return numpy.dot(x, y)
 
-def _dot_cpu(x, y, transa=False, transb=False, transout=False):
+def _dot_gpu(x, y, transa=False, transb=False, transout=False, out=None):
     if transout:
         # (X Y)^T = Y^T X^T
-        return _dot_cpu_notransout(y, x, transa=not transb, transb=not transa)
-    else:
-        return _dot_cpu_notransout(x, y, transa=transa, transb=transb)
-
-def _dot_gpu_notransout(x, y, transa=False, transb=False, out=None):
+        x, y, transa, transb = y, x, not transb, not transa
     x = _as_mat(x)
     y = _as_mat(y)
     with cuda.using_cumisc():
@@ -45,7 +46,10 @@ def _dot_gpu_notransout(x, y, transa=False, transb=False, out=None):
                 transb=_as_trans_op(transb),
                 out=out)
 
-def _dot_gpu_batched_notransout(x, y, out, transa=False, transb=False):
+def _dot_gpu_batched(x, y, out, transa=False, transb=False, transout=False):
+    if transout:
+        # (X Y)^T = Y^T X^T
+        x, y, transa, transb = y, x, not transb, not transa
     x = _as_batchmat(x)
     y = _as_batchmat(y)
     alpha = numpy.float32(1.0)
@@ -62,22 +66,6 @@ def _dot_gpu_batched_notransout(x, y, out, transa=False, transb=False):
             _bptrs(y).gpudata, k if transb else n,
             _bptrs(x).gpudata, m if transa else k,
             beta, _bptrs(out).gpudata, n, l)
-
-def _dot_gpu(x, y, transa=False, transb=False, transout=False, out=None):
-    if transout:
-        # (X Y)^T = Y^T X^T
-        return _dot_gpu_notransout(y, x,
-                transa=not transb, transb=not transa, out=out)
-    else:
-        return _dot_gpu_notransout(x, y, transa=transa, transb=transb, out=out)
-
-def _dot_gpu_batched(x, y, out, transa=False, transb=False, transout=False):
-    if transout:
-        # (X Y)^T = Y^T X^T
-        return _dot_gpu_batched_notransout(y, x,
-                transa=not transb, transb=not transa, out=out)
-    else:
-        return _dot_gpu_batched_notransout(x, y, transa=transa, transb=transb, out=out)
 
 class Dot(function.Function):
     def __init__(self, transa=False, transb=False):
