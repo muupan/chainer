@@ -1,9 +1,21 @@
-from chainer import cuda, Function
 import numpy
 
+from chainer import cuda
+from chainer import function
+
+def _bptrs(a):
+    """
+    Pointer array when input represents a batch of matrices.
+    """
+    return cuda.to_gpu(numpy.arange(a.ptr,a.ptr+a.shape[0]*a.strides[0],a.strides[0],
+                dtype=cuda.cublas.ctypes.c_void_p))
 def _as_mat(x):
     # 1-D arrays are considered as column vectors
     return x.reshape((len(x), 1)) if len(x.shape) == 1 else x
+
+def _as_batchmat(x):
+    # 1-D arrays are considered as column vectors
+    return x.reshape((x.shape[0], x.shape[1], 1)) if len(x.shape) == 2 else x
 
 def _as_trans_op(trans):
     return 't' if trans else 'n'
@@ -33,6 +45,24 @@ def _dot_gpu_notransout(x, y, transa=False, transb=False, out=None):
                 transb=_as_trans_op(transb),
                 out=out)
 
+def _dot_gpu_batched_notransout(x, y, out, transa=False, transb=False):
+    x = _as_batchmat(x)
+    y = _as_batchmat(y)
+    alpha = numpy.float32(1.0)
+    beta = numpy.float32(0.0)
+    l, m, k = x.shape
+    if transa:
+        m, k = k, m
+    n = y.shape[1] if transb else y.shape[2]
+    return cuda.cublas.cublasSgemmBatched(
+            cuda.get_cublas_handle(),
+            _as_trans_op(transb),
+            _as_trans_op(transa),
+            n, m, k, alpha,
+            _bptrs(y).gpudata, k if transb else n,
+            _bptrs(x).gpudata, m if transa else k,
+            beta, _bptrs(out).gpudata, n, l)
+
 def _dot_gpu(x, y, transa=False, transb=False, transout=False, out=None):
     if transout:
         # (X Y)^T = Y^T X^T
@@ -41,7 +71,15 @@ def _dot_gpu(x, y, transa=False, transb=False, transout=False, out=None):
     else:
         return _dot_gpu_notransout(x, y, transa=transa, transb=transb, out=out)
 
-class Dot(Function):
+def _dot_gpu_batched(x, y, out, transa=False, transb=False, transout=False):
+    if transout:
+        # (X Y)^T = Y^T X^T
+        return _dot_gpu_batched_notransout(y, x,
+                transa=not transb, transb=not transa, out=out)
+    else:
+        return _dot_gpu_batched_notransout(x, y, transa=transa, transb=transb, out=out)
+
+class Dot(function.Function):
     def __init__(self, transa=False, transb=False):
         self.transa = transa
         self.transb = transb
@@ -88,7 +126,7 @@ def dot(x, y, transa=False, transb=False):
     """
     return Dot(transa=transa, transb=transb)(x, y)
 
-class BatchDot(Function):
+class BatchDot(function.Function):
     def __init__(self, transa=False, transb=False):
         self.transa = transa
         self.transb = transb
@@ -129,13 +167,10 @@ class BatchDot(Function):
     def forward_gpu(self, x):
         x0, x1 = x
         assert x0.shape[0] == x1.shape[0]
-        batch_size = x0.shape[0]
         shape = self._output_shape(x0, x1)
         ret = cuda.empty(shape)
-        # TODO(muupan) batch computation for more efficiency
-        for i in xrange(batch_size):
-             _dot_gpu(x0[i], x1[i],
-                     transa=self.transa, transb=self.transb, out=ret[i])
+        _dot_gpu_batched(x0, x1,
+                 transa=self.transa, transb=self.transb, out=ret)
         return ret,
 
     def backward_gpu(self, x, gy):
@@ -143,12 +178,10 @@ class BatchDot(Function):
         batch_size = x0.shape[0]
         gx0 = cuda.empty((batch_size,) + _as_mat(x0[0]).shape)
         gx1 = cuda.empty((batch_size,) + _as_mat(x1[0]).shape)
-        # TODO(muupan) batch computation for more efficiency
-        for i in xrange(batch_size):
-            _dot_gpu(gy[0][i], x1[i],
-                    transb=not self.transb, transout=self.transa, out=gx0[i])
-            _dot_gpu(x0[i], gy[0][i],
-                    transa=not self.transa, transout=self.transb, out=gx1[i])
+        _dot_gpu_batched(gy[0], x1,
+                transb=not self.transb, transout=self.transa, out=gx0)
+        _dot_gpu_batched(x0, gy[0],
+                transa=not self.transa, transout=self.transb, out=gx1)
         gx0 = gx0.reshape(x0.shape)
         gx1 = gx1.reshape(x1.shape)
         return gx0, gx1

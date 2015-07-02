@@ -6,6 +6,7 @@ from chainer.functions import batch_normalization
 from chainer.functions import concat
 from chainer.functions import convolution_2d
 from chainer.functions import copy
+from chainer.functions import dot
 from chainer.functions import dropout
 from chainer.functions import embed_id
 from chainer.functions import hierarchical_softmax
@@ -30,6 +31,8 @@ from chainer.functions import tanh
 Concat = concat.Concat
 Copy = copy.Copy
 Dropout = dropout.Dropout
+Dot = dot.Dot
+BatchDot = dot.BatchDot
 Identity = identity.Identity
 Reshape = reshape.Reshape
 Exp = basic_math.Exp
@@ -60,9 +63,11 @@ Linear = linear.Linear
 Parameter = parameter.Parameter
 PReLU = prelu.PReLU
 
+batchdot = dot.batchdot
 concat = concat.concat
 copy = copy.copy
 dropout = dropout.dropout
+dot = dot.dot
 identity = identity.identity
 reshape = reshape.reshape
 
