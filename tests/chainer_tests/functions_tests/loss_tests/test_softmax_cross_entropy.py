@@ -31,6 +31,8 @@ class TestSoftmaxCrossEntropy(unittest.TestCase):
         y = numpy.exp(self.x)
         loss_expect = 0.0
         for i in six.moves.range(y.shape[0]):
+            if self.t[i] == -1:
+                continue
             loss_expect -= math.log(y[i, self.t[i]] / y[i].sum())
         loss_expect /= y.shape[0]
 
@@ -98,6 +100,8 @@ class TestReplicatedSoftmaxCrossEntropy1(TestSoftmaxCrossEntropy):
         loss_expect = 0.0
         for i in six.moves.range(y.shape[0]):
             for k in six.moves.range(y.shape[2]):
+                if self.t[i, k] == -1:
+                    continue
                 loss_expect -= math.log(
                     y[i, self.t[i, k], k] / y[i, :, k].sum())
         loss_expect /= y.shape[0] * y.shape[2]
@@ -127,10 +131,34 @@ class TestReplicatedSoftmaxCrossEntropy2(TestSoftmaxCrossEntropy):
         for i in six.moves.range(y.shape[0]):
             for k in six.moves.range(y.shape[2]):
                 for l in six.moves.range(y.shape[3]):
+                    if self.t[i, k, l] == -1:
+                        continue
                     loss_expect -= math.log(
                         y[i, self.t[i, k, l], k, l] / y[i, :, k, l].sum())
         loss_expect /= y.shape[0]
 
         self.assertAlmostEqual(loss_expect, loss_value, places=4)
+
+
+class TestSoftmaxCrossEntropyWithIngoredLabel1(TestSoftmaxCrossEntropy):
+
+    def setUp(self):
+        self.x = numpy.random.uniform(-1, 1, (4, 3)).astype(numpy.float32)
+        self.t = numpy.random.randint(-1, 3, (4,)).astype(numpy.int32)
+
+class TestReplicatedSoftmaxCrossEntropyWithIngoredLabel1(
+        TestReplicatedSoftmaxCrossEntropy1):
+
+    def setUp(self):
+        self.x = numpy.random.uniform(-1, 1, (4, 3, 2)).astype(numpy.float32)
+        self.t = numpy.random.randint(-1, 3, (4, 2)).astype(numpy.int32)
+
+class TestReplicatedSoftmaxCrossEntropyWithIngoredLabel2(
+        TestReplicatedSoftmaxCrossEntropy2):
+
+    def setUp(self):
+        self.x = numpy.random.uniform(
+            -1, 1, (4, 3, 2, 5)).astype(numpy.float32)
+        self.t = numpy.random.randint(-1, 3, (4, 2, 5)).astype(numpy.int32)
 
 testing.run_module(__name__, __file__)

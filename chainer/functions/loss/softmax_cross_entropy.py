@@ -33,8 +33,9 @@ class SoftmaxCrossEntropy(function.Function):
         self.y, = softmax.Softmax().forward((x,))
         yd = numpy.rollaxis(self.y, 1)
         yd = yd.reshape(len(yd), -1).T
-
         p = yd[six.moves.range(t.size), t.flat]
+        p[t.ravel() == -1] = 1
+        # if self.ignored_labels is not None:
         # deal with the case where the SoftmaxCrossEntropy is
         # unpickled from the old version
         if getattr(self, 'normalize', True):
@@ -55,7 +56,7 @@ class SoftmaxCrossEntropy(function.Function):
         y = cupy.rollaxis(self.y, 1, self.y.ndim)
         ret = cuda.reduce(
             'S t, raw T y, int32 n_channel, T inv_count', 'T out',
-            'log(max(y[_j * n_channel + t], FLT_MIN))',
+            't == -1 ? 0 : log(max(y[_j * n_channel + t], FLT_MIN))',
             'a + b', 'out = a * inv_count', '0', 'crossent_fwd',
             preamble='#include <float.h>'
         )(t, y.reduced_view(), y.shape[-1], -1.0 / count)
@@ -68,6 +69,7 @@ class SoftmaxCrossEntropy(function.Function):
         if self.y.ndim == 2:
             gx = self.y.copy()
             gx[six.moves.xrange(len(t)), t] -= 1
+            gx[t == -1] = 0
         else:
             # in the case where y.ndim is higher than 2,
             # we think that a current implementation is inefficient
@@ -76,6 +78,10 @@ class SoftmaxCrossEntropy(function.Function):
             fst_index = numpy.arange(t.size) // n_unit
             trd_index = numpy.arange(t.size) % n_unit
             gx[fst_index, t.flat, trd_index] -= 1
+            ignored_index = numpy.tile(
+                    (t == -1).reshape(self.y.shape[0], 1, n_unit),
+                    (1, self.y.shape[1], 1))
+            gx[ignored_index] = 0
             gx = gx.reshape(self.y.shape)
 
         if getattr(self, 'normalize', True):
@@ -98,7 +104,10 @@ class SoftmaxCrossEntropy(function.Function):
         gx = cuda.elementwise(
             'T y, S t, raw T coeff, S n_channel, S n_unit',
             'T gx',
-            'gx = coeff[0] * (y - (t == (i / n_unit % n_channel)))',
+            '''
+            gx = t == -1 ?
+                0 : coeff[0] * (y - (t == (i / n_unit % n_channel)));
+            ''',
             'softmax_crossent_bwd')(
                 self.y, cupy.expand_dims(t, 1), coeff, x.shape[1], n_unit)
         return gx, None
