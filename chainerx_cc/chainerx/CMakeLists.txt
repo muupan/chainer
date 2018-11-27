@@ -88,7 +88,7 @@ target_link_libraries(chainerx
     PUBLIC
     ${CMAKE_DL_LIBS}
     PRIVATE
-    -Wl,--whole-archive)
+    -Wl,-all_load)
 target_link_libraries(chainerx PRIVATE chainerx_routines)
 target_link_libraries(chainerx PRIVATE chainerx_native)
 target_link_libraries(chainerx PRIVATE chainerx_testing)
@@ -97,7 +97,7 @@ if(${CUDA_FOUND})
 endif()
 target_link_libraries(chainerx
     PRIVATE
-    -Wl,--no-whole-archive)
+    -Wl,-noall_load)
 install(TARGETS chainerx DESTINATION lib)
 
 if(${CHAINERX_BUILD_TEST})
