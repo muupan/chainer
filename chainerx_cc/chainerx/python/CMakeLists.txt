@@ -24,7 +24,7 @@ add_library(_core.so MODULE
 target_link_libraries(_core.so
     PRIVATE
     "-Wl" pybind11::module
-    "-Wl" chainerx)
+    "-Wl,-rpath" chainerx)
 set_target_properties(_core.so
     PROPERTIES
     PREFIX "${PYTHON_MODULE_PREFIX}"
